@@ -1,3 +1,5 @@
+
+
 import numpy as np
 import sys
 
@@ -8,6 +10,8 @@ from gym.utils import seeding
 import math
 from math import pi as PI
 import random
+from tkinter import *
+from tkinter.ttk import *
 
 all_envs = []
 
@@ -18,7 +22,7 @@ class CrawlingRobotEnv(Env):
             self.root.destroy()
             self.root = None
 
-    def __init__(self, horizon=np.inf, render=False):
+    def __init__(self, horizon=np.inf, render=False,master = None):
         if render:
             import tkinter
             for env in all_envs:
@@ -29,8 +33,24 @@ class CrawlingRobotEnv(Env):
             root.title('Crawler GUI')
             root.resizable(0, 0)
             self.root = root
-            canvas = tkinter.Canvas(root, height=500, width=1100)
+            canvas = tkinter.Canvas(root, height=500, width=1000)
+
+            rec=canvas.create_rectangle(665, 335, 735, 265, fill="yellow")
+            canvas.pack()
             canvas.grid(row=2, columnspan=10)
+
+
+            def move(event):
+                if event.char == "a":
+                    canvas.move(rec, -10, 0)
+                elif event.char == "d":
+                    canvas.move(rec, 10, 0)
+                elif event.char == "w":
+                    canvas.move(rec, 0, -10)
+                elif event.char == "s":
+                    canvas.move(rec, 0, 10)
+            root.bind("<Key>", move)
+            
 
             def close():
                 if self.root is not None:
@@ -55,6 +75,13 @@ class CrawlingRobotEnv(Env):
         self._stepCount = 0
         self.horizon = horizon
 
+        # def update_gui():
+        #     robot.draw(self.stepCount, )
+        # update_gui()
+
+        # The state is of the form (armAngle, handAngle)
+        # where the angles are bucket numbers, not actual
+        # degree measurements
         self.state = None
 
         self.nArmStates = 9
@@ -88,7 +115,66 @@ class CrawlingRobotEnv(Env):
         self._stepCount = val
         self.crawlingRobot.draw(val, self.root)
 
-    
+    def _legal_actions(self, state):
+        """
+          Returns possible actions
+          for the states in the
+          current state
+        """
+
+        actions = list()
+
+        currArmBucket,currHandBucket = state
+        if currArmBucket > 0: actions.append(0)
+        if currArmBucket < self.nArmStates-1: actions.append(1)
+        if currHandBucket > 0: actions.append(2)
+        if currHandBucket < self.nHandStates-1: actions.append(3)
+
+        return actions
+
+    def step(self, a):
+        """
+          Returns:
+            s, r, d, info
+        """
+        if self.stepCount >= self.horizon:
+            raise Exception("Horizon reached")
+        nextState, reward = None, None
+
+        oldX, oldY = self.crawlingRobot.getRobotPosition()
+        armBucket, handBucket = self.state
+
+        if a in self._legal_actions(self.state):
+            if a == 0:
+                newArmAngle = self.armBuckets[armBucket-1]
+                self.crawlingRobot.moveArm(newArmAngle)
+                nextState = (armBucket-1,handBucket)
+            elif a == 1:
+                newArmAngle = self.armBuckets[armBucket+1]
+                self.crawlingRobot.moveArm(newArmAngle)
+                nextState = (armBucket+1,handBucket)
+            elif a == 2:
+                newHandAngle = self.handBuckets[handBucket-1]
+                self.crawlingRobot.moveHand(newHandAngle)
+                nextState = (armBucket,handBucket-1)
+            elif a == 3:
+                newHandAngle = self.handBuckets[handBucket+1]
+                self.crawlingRobot.moveHand(newHandAngle)
+                nextState = (armBucket,handBucket+1)
+            else:
+                raise Exception("action out of range")
+        else:
+            nextState = self.state
+
+        newX, newY = self.crawlingRobot.getRobotPosition()
+
+        # a simple reward function
+        reward = newX - oldX
+
+        self.state = nextState
+        self.stepCount += 1
+
+        return tuple(nextState), reward, self.stepCount >= self.horizon, {}
 
 
     def reset(self):
@@ -130,7 +216,7 @@ class CrawlingRobot:
         self.maxHandAngle = 0
         self.minHandAngle = -(5.0/6.0) * PI
 
-        self.robotWidth = 150
+        self.robotWidth = 80
         self.robotHeight = 40
         self.armLength = 60
         self.handLength = 40
@@ -140,17 +226,17 @@ class CrawlingRobot:
         if canvas is not None:
             self.totWidth = canvas.winfo_reqwidth()
             self.totHeight = canvas.winfo_reqheight()
-            self.groundHeight = 90
+            self.groundHeight = 40
             self.groundY = self.totHeight - self.groundHeight
 
             self.ground = canvas.create_rectangle(
                 0,
-                self.groundY,self.totWidth,self.totHeight, fill='green'
+                self.groundY,self.totWidth,self.totHeight, fill='blue'
             )
 
             ## Robot Body ##
             self.robotPos = (self.totWidth / 5 * 2, self.groundY)
-            self.robotBody = canvas.create_polygon(0,0,0,0,0,0,0,0,0,0, fill='black')
+            self.robotBody = canvas.create_polygon(0,0,0,0,0,0,0,0, fill='green')
 
             ## Robot Arm ##
             self.robotArm = canvas.create_line(0,0,0,0,fill='orange',width=5)
@@ -185,7 +271,49 @@ class CrawlingRobot:
         """
         return self.robotPos
 
-    
+    def moveArm(self, newArmAngle):
+        """
+            move the robot arm to 'newArmAngle'
+        """
+        oldArmAngle = self.armAngle
+        if newArmAngle > self.maxArmAngle:
+            raise 'Crawling Robot: Arm Raised too high. Careful!'
+        if newArmAngle < self.minArmAngle:
+            raise 'Crawling Robot: Arm Raised too low. Careful!'
+        disp = self.displacement(self.armAngle, self.handAngle,
+                                 newArmAngle, self.handAngle)
+        curXPos = self.robotPos[0]
+        self.robotPos = (curXPos+disp, self.robotPos[1])
+        self.armAngle = newArmAngle
+
+        # Position and Velocity Sign Post
+        self.positions.append(self.getRobotPosition()[0])
+        #        self.angleSums.append(abs(math.degrees(oldArmAngle)-math.degrees(newArmAngle)))
+        if len(self.positions) > 100:
+            self.positions.pop(0)
+            #           self.angleSums.pop(0)
+
+    def moveHand(self, newHandAngle):
+        """
+            move the robot hand to 'newArmAngle'
+        """
+        oldHandAngle = self.handAngle
+
+        if newHandAngle > self.maxHandAngle:
+            raise 'Crawling Robot: Hand Raised too high. Careful!'
+        if newHandAngle < self.minHandAngle:
+            raise 'Crawling Robot: Hand Raised too low. Careful!'
+        disp = self.displacement(self.armAngle, self.handAngle, self.armAngle, newHandAngle)
+        curXPos = self.robotPos[0]
+        self.robotPos = (curXPos+disp, self.robotPos[1])
+        self.handAngle = newHandAngle
+
+        # Position and Velocity Sign Post
+        self.positions.append(self.getRobotPosition()[0])
+        #       self.angleSums.append(abs(math.degrees(oldHandAngle)-math.degrees(newHandAngle)))
+        if len(self.positions) > 100:
+            self.positions.pop(0)
+            #           self.angleSums.pop(0)
 
     def getMinAndMaxArmAngles(self):
         """
@@ -221,7 +349,29 @@ class CrawlingRobot:
     def __getCosAndSin(self, angle):
         return math.cos(angle), math.sin(angle)
 
-    
+    def displacement(self, oldArmDegree, oldHandDegree, armDegree, handDegree):
+
+        oldArmCos, oldArmSin = self.__getCosAndSin(oldArmDegree)
+        armCos, armSin = self.__getCosAndSin(armDegree)
+        oldHandCos, oldHandSin = self.__getCosAndSin(oldHandDegree)
+        handCos, handSin = self.__getCosAndSin(handDegree)
+
+        xOld = self.armLength * oldArmCos + self.handLength * oldHandCos + self.robotWidth
+        yOld = self.armLength * oldArmSin + self.handLength * oldHandSin + self.robotHeight
+
+        x = self.armLength * armCos + self.handLength * handCos + self.robotWidth
+        y = self.armLength * armSin + self.handLength * handSin + self.robotHeight
+
+        if y < 0:
+            if yOld <= 0:
+                return math.sqrt(xOld*xOld + yOld*yOld) - math.sqrt(x*x + y*y)
+            return (xOld - yOld*(x-xOld) / (y - yOld)) - math.sqrt(x*x + y*y)
+        else:
+            if yOld  >= 0:
+                return 0.0
+            return -(x - y * (xOld-x)/(yOld-y)) + math.sqrt(xOld*xOld + yOld*yOld)
+
+        raise 'Never Should See This!'
 
     def draw(self, stepCount, root):
         if self.canvas is None or root is None:
@@ -258,5 +408,42 @@ class CrawlingRobot:
         yHand = yArm - self.handLength * handSin
 
         self.canvas.coords(self.robotHand,xArm,yArm,xHand,yHand)
+
+
+        # Position and Velocity Sign Post
+        #        time = len(self.positions) + 0.5 * sum(self.angleSums)
+        #        velocity = (self.positions[-1]-self.positions[0]) / time
+        #        if len(self.positions) == 1: return
+        steps = (stepCount - self.lastStep)
+        # if steps==0:return
+        #       pos = self.positions[-1]
+        #        velocity = (pos - self.lastPos) / steps
+        #      g = .9 ** (10 * stepDelay)
+        #        g = .99 ** steps
+        #        self.velAvg = g * self.velAvg + (1 - g) * velocity
+        #       g = .999 ** steps
+        #       self.velAvg2 = g * self.velAvg2 + (1 - g) * velocity
+        pos = self.positions[-1]
+        velocity = pos - self.positions[-2]
+        vel2 = (pos - self.positions[0]) / len(self.positions)
+        self.velAvg = .9 * self.velAvg + .1 * vel2
+        velMsg = '100-step Avg Velocity: %.2f' % self.velAvg
+        #        velMsg2 = '1000-step Avg Velocity: %.2f' % self.velAvg2
+        velocityMsg = 'Velocity: %.2f' % velocity
+        positionMsg = 'Position: %2.f' % pos
+        stepMsg = 'Step: %d' % stepCount
+        if 'vel_msg' in dir(self):
+            self.canvas.delete(self.vel_msg)
+            self.canvas.delete(self.pos_msg)
+            self.canvas.delete(self.step_msg)
+            self.canvas.delete(self.velavg_msg)
+            #           self.canvas.delete(self.velavg2_msg)
+            #       self.velavg2_msg = self.canvas.create_text(850,190,text=velMsg2)
+        self.velavg_msg = self.canvas.create_text(650,490,text=velMsg)
+        self.vel_msg = self.canvas.create_text(450,490,text=velocityMsg)
+        self.pos_msg = self.canvas.create_text(250,490,text=positionMsg)
+        self.step_msg = self.canvas.create_text(50,490,text=stepMsg)
+        #        self.lastPos = pos
+        self.lastStep = stepCount
         root.update()
     #        self.lastVel = velocity
