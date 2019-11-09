@@ -6,8 +6,8 @@ tries to moves in a direction.
 
 
 To Run it Type :
-    1. Install gym folder using  
-          pip install --user gym
+
+    1.Install gym folder using  pip install --user gym
     2.Go to that project Folder and
     3.Run Python3 play.py 
     
