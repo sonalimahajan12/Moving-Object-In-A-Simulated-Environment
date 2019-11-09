@@ -26,4 +26,3 @@ class QAgent():
 
         oldv = self.q_vals[cur_state][action] 
         self.q_vals[cur_state][action] = oldv + self.alpha * (new_value - oldv)
-     

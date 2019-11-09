@@ -33,22 +33,35 @@ class CrawlingRobotEnv(Env):
             root.title('Crawler GUI')
             root.resizable(0, 0)
             self.root = root
-            canvas = tkinter.Canvas(root, height=500, width=1000)
+            canvasheight = 500
+            canvaswidth = 1000
+            canvas = tkinter.Canvas(root, height=canvasheight, width=canvaswidth)
 
-            rec=canvas.create_rectangle(665, 335, 735, 265, fill="yellow")
+            recxpos = 660
+            recypos = 330
+            recwidth = 70
+            recheight = 70
+            rec=canvas.create_rectangle(recxpos, recypos, recxpos + recwidth, recypos - recheight, fill="yellow")
+
             canvas.pack()
             canvas.grid(row=2, columnspan=10)
 
 
             def move(event):
+                reccoords = canvas.coords(rec)
+                #print(reccoords)
                 if event.char == "a":
-                    canvas.move(rec, -10, 0)
+                    if reccoords[0] > 0:
+                        canvas.move(rec, -10, 0)
                 elif event.char == "d":
-                    canvas.move(rec, 10, 0)
+                    if reccoords[2] < canvaswidth:
+                        canvas.move(rec, 10, 0)
                 elif event.char == "w":
-                    canvas.move(rec, 0, -10)
+                    if reccoords[1] > 0:
+                        canvas.move(rec, 0, -10)
                 elif event.char == "s":
-                    canvas.move(rec, 0, 10)
+                    if reccoords[3] < canvasheight - 40:
+                        canvas.move(rec, 0, 10)
             root.bind("<Key>", move)
             
 
@@ -439,10 +452,10 @@ class CrawlingRobot:
             self.canvas.delete(self.velavg_msg)
             #           self.canvas.delete(self.velavg2_msg)
             #       self.velavg2_msg = self.canvas.create_text(850,190,text=velMsg2)
-        self.velavg_msg = self.canvas.create_text(650,490,text=velMsg)
-        self.vel_msg = self.canvas.create_text(450,490,text=velocityMsg)
-        self.pos_msg = self.canvas.create_text(250,490,text=positionMsg)
-        self.step_msg = self.canvas.create_text(50,490,text=stepMsg)
+        self.velavg_msg = self.canvas.create_text(650,490,text=velMsg, fill = 'white')
+        self.vel_msg = self.canvas.create_text(450,490,text=velocityMsg, fill = 'white')
+        self.pos_msg = self.canvas.create_text(250,490,text=positionMsg, fill = 'white')
+        self.step_msg = self.canvas.create_text(50,490,text=stepMsg, fill = 'white')
         #        self.lastPos = pos
         self.lastStep = stepCount
         root.update()
