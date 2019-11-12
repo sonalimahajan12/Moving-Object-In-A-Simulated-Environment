@@ -43,6 +43,9 @@ class CrawlingRobotEnv(Env):
             recheight = 70
             rec=canvas.create_rectangle(recxpos, recypos, recxpos + recwidth, recypos - recheight, fill="yellow")
 
+            """sensors = [[0 for x in range(5)] for x in range(10)]
+            self.sensors = sensors"""
+
             canvas.pack()
             canvas.grid(row=2, columnspan=10)
 
@@ -235,11 +238,16 @@ class CrawlingRobot:
         self.handLength = 40
         self.positions = [0,0]
 
+        self.sensorRow = 3
+        self.sensorCol = 7
+
+        self.sensors = [[0 for x in range(self.sensorRow)] for x in range(self.sensorCol)]
+
         ## Draw Ground ##
         if canvas is not None:
             self.totWidth = canvas.winfo_reqwidth()
             self.totHeight = canvas.winfo_reqheight()
-            self.groundHeight = 40
+            self.groundHeight = 20
             self.groundY = self.totHeight - self.groundHeight
 
             self.ground = canvas.create_rectangle(
@@ -256,6 +264,11 @@ class CrawlingRobot:
 
             ## Robot Hand ##
             self.robotHand = canvas.create_line(0,0,0,0,fill='red',width=3)
+
+            for i in range(self.sensorCol):
+                for j in range(self.sensorRow):
+                    self.sensors[i][j] = self.canvas.create_oval(0, 0, 0, 0, fill = "red")
+
 
             # canvas.focus_force()
 
@@ -399,6 +412,7 @@ class CrawlingRobot:
         rotationAngle = self.getRotationAngle()
         cosRot, sinRot = self.__getCosAndSin(rotationAngle)
 
+
         x2 = x1 + self.robotWidth * cosRot
         y2 = y1 - self.robotWidth * sinRot
 
@@ -407,8 +421,34 @@ class CrawlingRobot:
 
         x4 = x3 + cosRot*self.robotWidth
         y4 = y3 - sinRot*self.robotWidth
+        
+        sensorDiameter = 4
+        sensorRadius = sensorDiameter // 2
+
+        distBwSensors = self.robotHeight / (self.sensorRow - 1)
+        sensorCoords = [x4, y4, x4 + sensorRadius + self.sensorCol * distBwSensors, y4 + sensorRadius + self.sensorRow * distBwSensors]
+        
+        sensorX1 = 0
+        sensorY1 = 0
+        sensorX2 = 0
+        sensorY2 = 0
+        
 
         self.canvas.coords(self.robotBody,x1,y1,x2,y2,x4,y4,x3,y3)
+        #self.canvas.create_rectangle(x1,y1,x4,y4,fill="green")
+
+        """for i in range(10):
+            for j in range(5):
+                self.canvas.delete(self.sensors[i][j])"""
+
+        for i in range(self.sensorCol):
+            for j in range(self.sensorRow):
+                #p = 0
+                sensorX1 = x4 - sensorRadius + i * distBwSensors
+                sensorY1 = y4 - sensorRadius + j * distBwSensors
+                sensorX2 = x4 + sensorRadius + i * distBwSensors
+                sensorY2 = y4 + sensorRadius + j * distBwSensors
+                self.canvas.coords(self.sensors[i][j], sensorX1, sensorY1, sensorX2, sensorY2)
 
         armCos, armSin = self.__getCosAndSin(rotationAngle+self.armAngle)
         xArm = x4 + self.armLength * armCos
@@ -421,6 +461,10 @@ class CrawlingRobot:
         yHand = yArm - self.handLength * handSin
 
         self.canvas.coords(self.robotHand,xArm,yArm,xHand,yHand)
+
+        #print(self.canvas.find_overlapping(650, 320, 80, 80))
+        if 1 in (self.canvas.find_overlapping(sensorCoords[0], sensorCoords[1], sensorCoords[2], sensorCoords[3])):
+            print("Stop")
 
 
         # Position and Velocity Sign Post
