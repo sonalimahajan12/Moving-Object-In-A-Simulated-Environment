@@ -12,6 +12,7 @@ from math import pi as PI
 import random
 from tkinter import *
 from tkinter.ttk import *
+import time
 
 all_envs = []
 
@@ -461,10 +462,16 @@ class CrawlingRobot:
         yHand = yArm - self.handLength * handSin
 
         self.canvas.coords(self.robotHand,xArm,yArm,xHand,yHand)
+        
 
         #print(self.canvas.find_overlapping(650, 320, 80, 80))
+        
         if 1 in (self.canvas.find_overlapping(sensorCoords[0], sensorCoords[1], sensorCoords[2], sensorCoords[3])):
-            print("Stop")
+            self.canvas.update() 
+            time.sleep(0.70)
+        
+        
+            
 
 
         # Position and Velocity Sign Post
