@@ -4,7 +4,7 @@ import numpy as np
 class QAgent():
     def __init__(self,env,gamma):
         
-        self.gamma = 0.9
+        self.gamma = gamma
         self.env = env
         self.q_vals = defaultdict(lambda: np.array([0. for _ in range(env.action_space.n)]))
         self.alpha = 0.2

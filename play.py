@@ -3,12 +3,13 @@ from Agents import QAgent
 import numpy as np
 from crawler_env import CrawlingRobotEnv
 import time
+import msvcrt
 
 
 
 env = CrawlingRobotEnv(render=False)
 
-agent = QAgent(env,gamma=0.3)
+agent = QAgent(env,gamma=0.9)
 
 
 
@@ -50,10 +51,10 @@ while i < 5000:
     total_reward += reward
 
     if i % 1000 == 0: # evaluation
-        print("average_reward in last 1000 steps", ((total_reward - previous_reward) / 1000))
-        previous_reward = total_reward
+        print("total reward till now", total_reward)
         average_reward = 0
         env.render = True
        
 
-time.sleep(3)	
+#time.sleep(2)
+msvcrt.getch()
