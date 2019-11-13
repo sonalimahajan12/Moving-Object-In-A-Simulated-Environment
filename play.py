@@ -3,7 +3,7 @@ from Agents import QAgent
 import numpy as np
 from crawler_env import CrawlingRobotEnv
 import time
-import getch
+import msvcrt
 
 
 
@@ -57,4 +57,4 @@ while i < 5000:
        
 
 #time.sleep(2)
-getch.getch()
+msvcrt.getch()
