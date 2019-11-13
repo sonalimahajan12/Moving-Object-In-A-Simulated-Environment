@@ -52,19 +52,20 @@ class CrawlingRobotEnv(Env):
             def move(event):
                 reccoords = canvas.coords(rec)
                 #print(reccoords)
-                if event.char == "a":
+                if event.char == "a" or event.keysym=='Left':
                     if reccoords[0] > 0:
                         canvas.move(rec, -10, 0)
-                elif event.char == "d":
+                elif event.char == "d" or event.keysym=='Right':
                     if reccoords[2] < canvaswidth:
                         canvas.move(rec, 10, 0)
-                elif event.char == "w":
+                elif event.char == "w" or event.keysym=='Up':
                     if reccoords[1] > 0:
                         canvas.move(rec, 0, -10)
-                elif event.char == "s":
+                elif event.char == "s" or event.keysym=='Down':
                     if reccoords[3] < canvasheight - 20:
                         canvas.move(rec, 0, 10)
             root.bind("<Key>", move)
+            root.bind("<KeyPress-Left>", move)
             
 
             def close():
@@ -507,8 +508,6 @@ class CrawlingRobot:
         ## Check Lower Still on the ground
         if self.y1 != self.groundY:
             raise 'Flying Robot!!'
-        #print(self.x3, self.y3, self.sensorCoords[2], self.sensorCoords[3])
-        #print(self.canvas.find_overlapping(650, 320, 80, 80))
         if 1 in (self.canvas.find_overlapping(self.sensorCoords[0], self.sensorCoords[1], self.sensorCoords[2], self.sensorCoords[3])):
             #print("Stop", self.count)
             self.count += 1
@@ -517,7 +516,7 @@ class CrawlingRobot:
             CrawlingRobotEnv.stop = 0
             self.updateValues()
         
-        #print(CrawlingRobotEnv.stop)
+        #print(CrawlingRobotE`
 
         self.updateCoords()
         
