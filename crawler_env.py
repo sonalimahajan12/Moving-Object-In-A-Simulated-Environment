@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import sys
 
@@ -16,6 +14,7 @@ from tkinter.ttk import *
 all_envs = []
 
 class CrawlingRobotEnv(Env):
+
 
     def close_gui(self):
         if self.root is not None:
@@ -63,7 +62,7 @@ class CrawlingRobotEnv(Env):
                     if reccoords[1] > 0:
                         canvas.move(rec, 0, -10)
                 elif event.char == "s":
-                    if reccoords[3] < canvasheight - 40:
+                    if reccoords[3] < canvasheight - 20:
                         canvas.move(rec, 0, 10)
             root.bind("<Key>", move)
             
@@ -88,6 +87,7 @@ class CrawlingRobotEnv(Env):
         robot = CrawlingRobot(canvas)
         self.crawlingRobot = robot
 
+        CrawlingRobotEnv.stop = 0
         self._stepCount = 0
         self.horizon = horizon
 
@@ -182,13 +182,21 @@ class CrawlingRobotEnv(Env):
         else:
             nextState = self.state
 
-        newX, newY = self.crawlingRobot.getRobotPosition()
+        #print(CrawlingRobotEnv.stop)
+        if(CrawlingRobotEnv.stop == 0):
+            newX, newY = self.crawlingRobot.getRobotPosition()
+
+            reward = newX - oldX
+            self.stepCount += 1
+
+            self.state = nextState
+        else:
+            newX, newY = oldX, oldY
+
+            reward = 0
+            self.stepCount += 1
 
         # a simple reward function
-        reward = newX - oldX
-
-        self.state = nextState
-        self.stepCount += 1
 
         return tuple(nextState), reward, self.stepCount >= self.horizon, {}
 
@@ -239,8 +247,11 @@ class CrawlingRobot:
         self.positions = [0,0]
 
         self.sensorRow = 3
-        self.sensorCol = 7
+        self.sensorCol = 5
 
+        self.count = 0
+
+        
         self.sensors = [[0 for x in range(self.sensorRow)] for x in range(self.sensorCol)]
 
         ## Draw Ground ##
@@ -267,13 +278,51 @@ class CrawlingRobot:
 
             for i in range(self.sensorCol):
                 for j in range(self.sensorRow):
-                    self.sensors[i][j] = self.canvas.create_oval(0, 0, 0, 0, fill = "red")
+                    self.sensors[i][j] = self.canvas.create_oval(0, 0, 0, 0, fill = "gray")
+
+            
+            self.box = self.canvas.create_rectangle(0, 0, 0, 0)
 
 
             # canvas.focus_force()
 
         else:
             self.robotPos = (20, 0)
+
+        
+
+        self.rotationAngle = self.getRotationAngle()
+        self.cosRot, self.sinRot = self.__getCosAndSin(self.rotationAngle)
+
+        self.x1, self.y1 = self.getRobotPosition()
+        #self.x1 = self.x1 % self.totWidth
+        self.x1 = self.x1 % 1000
+
+        self.x2 = self.x1 + self.robotWidth * self.cosRot
+        self.y2 = self.y1 - self.robotWidth * self.sinRot
+
+        self.x3 = self.x1 - self.robotHeight * self.sinRot
+        self.y3 = self.y1 - self.robotHeight * self.cosRot
+
+        self.x4 = self.x3 + self.cosRot*self.robotWidth
+        self.y4 = self.y3 - self.sinRot*self.robotWidth
+        
+        self.sensorDiameter = 4
+        self.sensorRadius = self.sensorDiameter // 2
+
+        self.distBwSensors = self.robotHeight / (self.sensorRow - 1)
+        self.sensorCoords = [self.x4, self.y4, self.x4 + self.sensorRadius + self.sensorCol * self.distBwSensors, self.y4 + self.sensorRadius + self.sensorRow * self.distBwSensors]
+
+        self.armCos, self.armSin = self.__getCosAndSin(self.rotationAngle+self.armAngle)
+        self.xArm = self.x4 + self.armLength * self.armCos
+        self.yArm = self.y4 - self.armLength * self.armSin
+        
+        self.handCos, self.handSin = self.__getCosAndSin(self.handAngle+self.rotationAngle)
+        self.xHand = self.xArm + self.handLength * self.handCos
+        self.yHand = self.yArm - self.handLength * self.handSin
+
+        
+
 
     def setAngles(self, armAngle, handAngle):
         """
@@ -399,73 +448,81 @@ class CrawlingRobot:
 
         raise 'Never Should See This!'
 
-    def draw(self, stepCount, root):
-        if self.canvas is None or root is None:
-            return
-        x1, y1 = self.getRobotPosition()
-        x1 = x1 % self.totWidth
+    def updateValues(self):
+        self.rotationAngle = self.getRotationAngle()
+        self.cosRot, self.sinRot = self.__getCosAndSin(self.rotationAngle)
 
-        ## Check Lower Still on the ground
-        if y1 != self.groundY:
-            raise 'Flying Robot!!'
+        self.x1, self.y1 = self.getRobotPosition()
+        self.x1 = self.x1 % self.totWidth
 
-        rotationAngle = self.getRotationAngle()
-        cosRot, sinRot = self.__getCosAndSin(rotationAngle)
+        self.x2 = self.x1 + self.robotWidth * self.cosRot
+        self.y2 = self.y1 - self.robotWidth * self.sinRot
 
+        self.x3 = self.x1 - self.robotHeight * self.sinRot
+        self.y3 = self.y1 - self.robotHeight * self.cosRot
 
-        x2 = x1 + self.robotWidth * cosRot
-        y2 = y1 - self.robotWidth * sinRot
-
-        x3 = x1 - self.robotHeight * sinRot
-        y3 = y1 - self.robotHeight * cosRot
-
-        x4 = x3 + cosRot*self.robotWidth
-        y4 = y3 - sinRot*self.robotWidth
+        self.x4 = self.x3 + self.cosRot * self.robotWidth
+        self.y4 = self.y3 - self.sinRot * self.robotWidth
         
-        sensorDiameter = 4
-        sensorRadius = sensorDiameter // 2
+        self.sensorDiameter = 4
+        self.sensorRadius = self.sensorDiameter // 2
 
-        distBwSensors = self.robotHeight / (self.sensorRow - 1)
-        sensorCoords = [x4, y4, x4 + sensorRadius + self.sensorCol * distBwSensors, y4 + sensorRadius + self.sensorRow * distBwSensors]
+        self.distBwSensors = self.robotHeight / (self.sensorRow - 1)
+        #print(self.distBwSensors)
+        self.sensorCoords = [self.x3, self.y4, self.x4 + self.sensorRadius + (self.sensorCol - 1) * self.distBwSensors, self.y1]
         
-        sensorX1 = 0
-        sensorY1 = 0
-        sensorX2 = 0
-        sensorY2 = 0
+        self.armCos, self.armSin = self.__getCosAndSin(self.rotationAngle+self.armAngle)
+        self.xArm = self.x4 + self.armLength * self.armCos
+        self.yArm = self.y4 - self.armLength * self.armSin
         
+        self.handCos, self.handSin = self.__getCosAndSin(self.handAngle+self.rotationAngle)
+        self.xHand = self.xArm + self.handLength * self.handCos
+        self.yHand = self.yArm - self.handLength * self.handSin
 
-        self.canvas.coords(self.robotBody,x1,y1,x2,y2,x4,y4,x3,y3)
-        #self.canvas.create_rectangle(x1,y1,x4,y4,fill="green")
 
-        """for i in range(10):
-            for j in range(5):
-                self.canvas.delete(self.sensors[i][j])"""
+    def updateCoords(self):
+        self.canvas.coords(self.robotBody,self.x1,self.y1,self.x2,self.y2,self.x4,self.y4,self.x3,self.y3)        
+
+        self.canvas.coords(self.robotArm,self.x4,self.y4,self.xArm,self.yArm)        
+
+        self.canvas.coords(self.robotHand,self.xArm,self.yArm,self.xHand,self.yHand)
 
         for i in range(self.sensorCol):
             for j in range(self.sensorRow):
                 #p = 0
-                sensorX1 = x4 - sensorRadius + i * distBwSensors
-                sensorY1 = y4 - sensorRadius + j * distBwSensors
-                sensorX2 = x4 + sensorRadius + i * distBwSensors
-                sensorY2 = y4 + sensorRadius + j * distBwSensors
-                self.canvas.coords(self.sensors[i][j], sensorX1, sensorY1, sensorX2, sensorY2)
+                sensorX1 = self.x4 - self.sensorRadius + i * self.distBwSensors
+                sensorY1 = self.y4 - self.sensorRadius + j * self.distBwSensors
+                sensorX2 = self.x4 + self.sensorRadius + i * self.distBwSensors
+                sensorY2 = self.y4 + self.sensorRadius + j * self.distBwSensors
+                #self.canvas.coords(self.sensors[i][j], sensorX1, sensorY1, sensorX2, sensorY2)
 
-        armCos, armSin = self.__getCosAndSin(rotationAngle+self.armAngle)
-        xArm = x4 + self.armLength * armCos
-        yArm = y4 - self.armLength * armSin
+        
+        #self.canvas.coords(self.box, self.x3, self.y4, self.x4 + self.sensorRadius + (self.sensorCol - 1) * self.distBwSensors, self.y1)
 
-        self.canvas.coords(self.robotArm,x4,y4,xArm,yArm)
+    def draw(self, stepCount, root):
+        if self.canvas is None or root is None:
+            return
+        
 
-        handCos, handSin = self.__getCosAndSin(self.handAngle+rotationAngle)
-        xHand = xArm + self.handLength * handCos
-        yHand = yArm - self.handLength * handSin
-
-        self.canvas.coords(self.robotHand,xArm,yArm,xHand,yHand)
-
+        ## Check Lower Still on the ground
+        if self.y1 != self.groundY:
+            raise 'Flying Robot!!'
+        #print(self.x3, self.y3, self.sensorCoords[2], self.sensorCoords[3])
         #print(self.canvas.find_overlapping(650, 320, 80, 80))
-        if 1 in (self.canvas.find_overlapping(sensorCoords[0], sensorCoords[1], sensorCoords[2], sensorCoords[3])):
-            print("Stop")
+        #print(self.canvas.find_overlapping(self.sensorCoords[0], self.sensorCoords[1], self.sensorCoords[2], self.sensorCoords[3]))
+        if 1 in (self.canvas.find_overlapping(self.sensorCoords[0], self.sensorCoords[1], self.sensorCoords[2], self.sensorCoords[3])):
+            #print("Stop", self.count)
+            self.count += 1
+            CrawlingRobotEnv.stop = 1
+        else:
+            CrawlingRobotEnv.stop = 0
+            self.updateValues()
+        
+        #print(CrawlingRobotEnv.stop)
 
+        self.updateCoords()
+        
+        
 
         # Position and Velocity Sign Post
         #        time = len(self.positions) + 0.5 * sum(self.angleSums)
